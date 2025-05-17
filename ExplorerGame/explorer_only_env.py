@@ -1,6 +1,6 @@
 import random
 from dataclasses import dataclass, field
-from typing import List, Tuple, Dict, Optional
+from typing import List, Tuple, Dict, Optional, Callable, Any
 
 # -----------------------------
 # Basic card model
@@ -99,6 +99,8 @@ class ExplorerOnlyGame:
         self.players: List[Player] = [Player(), Player()]
         self.current: int = 0  # Index of the player whose turn it is
         self.turn: int = 0
+        self.opponent_ai = None
+        self.debug_output = True  # Add this flag
         self._init_players()
 
     # ------------------------------------------------------------------
@@ -138,22 +140,25 @@ class ExplorerOnlyGame:
                 player.trade_pool += card.trade
                 player.combat_pool += card.combat
 
-        # 2️⃣  SCRAP PHASE (optional)
-        if "scrap_explorers" in action and action["scrap_explorers"]:
-            # Get all explorers in play with their indices
+        # 2️⃣ SCRAP PHASE (optional)
+        if "scrap_explorers" in action:
+            # Get all explorers in play
             explorers_indices = [i for i, c in enumerate(player.in_play) if c.is_explorer()]
             
-            # If action["scrap_explorers"] is a list, scrap specific explorers
             if isinstance(action["scrap_explorers"], list):
-                # Important fix: Need to sort in reverse to avoid index shifting issues
+                # Case 1: Specific indices provided
                 indices_to_scrap = sorted(
                     [i for i in action["scrap_explorers"] if i in explorers_indices], 
                     reverse=True
                 )
+            elif isinstance(action["scrap_explorers"], bool):
+                # Case 2: Boolean flag (backwards compatibility)
+                indices_to_scrap = sorted(explorers_indices, reverse=True) if action["scrap_explorers"] else []
             else:
-                # For backward compatibility: if boolean True, scrap all explorers
-                indices_to_scrap = sorted(explorers_indices, reverse=True)
-                
+                # Case 3: Count-based scrapping (new approach)
+                count = min(int(action["scrap_explorers"]), len(explorers_indices))
+                indices_to_scrap = sorted(explorers_indices[:count], reverse=True)
+            
             # Debug output for combat tracking
             combat_before = player.combat_pool
                 
@@ -166,25 +171,30 @@ class ExplorerOnlyGame:
             
             # Debug output for combat tracking
             combat_after = player.combat_pool
-            print(f"DEBUG: Combat from scrapping: {combat_after - combat_before}")
+            if self.debug_output:
+                print(f"DEBUG: Combat from scrapping: {combat_after - combat_before}")
 
         # 3️⃣  BUY PHASE – only Explorers are available
         to_buy = min(action.get("buy_explorers", 0), player.trade_pool // 2)
         if to_buy > 0:
-            print(f"DEBUG: Buying {to_buy} Explorer(s)")
+            if self.debug_output:
+                print(f"DEBUG: Buying {to_buy} Explorer(s)")
             for _ in range(to_buy):
                 player.trade_pool -= 2
                 player.discard.append(self.EXPLORER.copy())
                 
             # Debug info about player's cards
             explorer_count = sum(1 for c in player.discard if c.is_explorer())
-            print(f"DEBUG: Player now has {explorer_count} Explorer(s) in discard pile")
+            if self.debug_output:
+                print(f"DEBUG: Player now has {explorer_count} Explorer(s) in discard pile")
 
         # 4️⃣  COMBAT PHASE – damage the opponent
         opponent = self.players[1 - self.current]
-        print(f"DEBUG: Final combat pool: {player.combat_pool}, opponent authority before: {opponent.authority}")
+        if self.debug_output:
+            print(f"DEBUG: Final combat pool: {player.combat_pool}, opponent authority before: {opponent.authority}")
         opponent.authority -= player.combat_pool
-        print(f"DEBUG: Opponent authority after: {opponent.authority}")
+        if self.debug_output:
+            print(f"DEBUG: Opponent authority after: {opponent.authority}")
 
         # 5️⃣  CLEANUP PHASE
         player.discard.extend(player.in_play)
