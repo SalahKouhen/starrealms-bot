@@ -238,3 +238,36 @@ class ExplorerOnlyGymEnv(gym.Env):
             game_action["buy_explorers"] = int(gym_action["buy_explorers"])
         
         return game_action
+    
+    def _convert_game_action_to_gym_action(self, game_action: Dict) -> Dict:
+        """Convert game action format to the format expected by the gym."""
+        gym_action = {
+            "play_cards": np.zeros(self.limits["max_cards_in_hand"], dtype=bool),
+            "scrap_explorers": 0,
+            "buy_explorers": 0
+        }
+        
+        # Convert play_cards from list of indices to binary array
+        if "play_cards" in game_action:
+            for idx in game_action["play_cards"]:
+                if 0 <= idx < self.limits["max_cards_in_hand"]:
+                    gym_action["play_cards"][idx] = True
+        
+        # Convert scrap_explorers
+        if "scrap_explorers" in game_action:
+            if isinstance(game_action["scrap_explorers"], list):
+                gym_action["scrap_explorers"] = min(len(game_action["scrap_explorers"]), 
+                                                 self.limits["max_explorers_in_play"])
+            elif isinstance(game_action["scrap_explorers"], bool):
+                # If it's True, scrap all explorers (assume maximum)
+                gym_action["scrap_explorers"] = self.limits["max_explorers_in_play"] if game_action["scrap_explorers"] else 0
+            else:
+                gym_action["scrap_explorers"] = min(int(game_action["scrap_explorers"]), 
+                                                 self.limits["max_explorers_in_play"])
+        
+        # Convert buy_explorers
+        if "buy_explorers" in game_action:
+            gym_action["buy_explorers"] = min(game_action["buy_explorers"], 
+                                      self.limits["max_explorers_to_buy"] - 1)
+        
+        return gym_action

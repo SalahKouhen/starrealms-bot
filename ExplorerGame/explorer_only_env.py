@@ -100,7 +100,7 @@ class ExplorerOnlyGame:
         self.current: int = 0  # Index of the player whose turn it is
         self.turn: int = 0
         self.opponent_ai = None
-        self.debug_output = True  # Add this flag
+        self.debug_output = False  # Changed from True to False
         self._init_players()
 
     # ------------------------------------------------------------------

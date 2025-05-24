@@ -92,12 +92,17 @@ class GreedyCombatAI(BenchmarkAI):
         # Always scrap all explorers for combat
         scrap_count = explorers_in_play + explorers_in_hand
         
-        # Buy as many explorers as possible (to scrap next turn)
-        buy_count = player.trade_pool // 2
+        # Calculate what trade will be after playing all cards
+        future_trade = player.trade_pool
+        for card in player.hand:
+            future_trade += card.trade
+        
+        # Buy as many explorers as possible using the future trade pool
+        buy_count = future_trade // 2
         
         return {
             "play_cards": play_indices,
-            "scrap_explorers": scrap_count,  # Changed from scrap_explorers_count
+            "scrap_explorers": scrap_count,
             "buy_explorers": buy_count
         }
 
